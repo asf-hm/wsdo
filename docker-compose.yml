@@ -1,0 +1,28 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      MONGO_URI: mongodb://mongo:27017/book-management
+      JWT_SECRET: change-me-to-at-least-32-characters
+      JWT_EXPIRES_IN: 7d
+      PORT: 3000
+      NODE_ENV: production
+      BOOKS_DEFAULT_LIMIT: 20
+      BOOKS_MAX_LIMIT: 100
+      FEED_LIMIT: 50
+      FEED_MAX_PAGES: 2000
+      FEED_MAX_AGE_DAYS: 36500
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
