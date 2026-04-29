@@ -5,7 +5,7 @@ services:
       - "3000:3000"
     environment:
       MONGO_URI: mongodb://mongo:27017/book-management
-      JWT_SECRET: change-me-to-at-least-32-characters
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-at-least-32-characters}
       JWT_EXPIRES_IN: 7d
       PORT: 3000
       NODE_ENV: production
@@ -15,7 +15,8 @@ services:
       FEED_MAX_PAGES: 2000
       FEED_MAX_AGE_DAYS: 36500
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
 
   mongo:
     image: mongo:7
@@ -23,6 +24,11 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mongo-data:

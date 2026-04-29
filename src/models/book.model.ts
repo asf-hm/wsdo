@@ -15,7 +15,8 @@ const bookSchema = new Schema(
     authorCountry: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+      uppercase: true
     },
     publishedDate: {
       type: Date,
@@ -32,11 +33,10 @@ const bookSchema = new Schema(
       required: true
     }
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false }
 );
 
 bookSchema.index({ library: 1 });
-bookSchema.index({ library: 1, authorCountry: 1 });
 
 export type Book = InferSchemaType<typeof bookSchema>;
 

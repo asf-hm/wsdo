@@ -8,24 +8,26 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
   const authorization = req.header('Authorization');
 
   if (!authorization?.startsWith('Bearer ')) {
-    next(new AppError('Authentication required', 401));
-    return;
+    return next(new AppError('Authentication required', 401));
   }
 
   const token = authorization.slice('Bearer '.length).trim();
 
+  if (!token) {
+    return next(new AppError('Authentication required', 401));
+  }
+
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET);
+    const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
     const parsed = authPayloadSchema.safeParse(decoded);
 
     if (!parsed.success) {
-      next(new AppError('Authentication required', 401));
-      return;
+      return next(new AppError('Authentication required', 401));
     }
 
     req.user = parsed.data;
-    next();
+    return next();
   } catch {
-    next(new AppError('Authentication required', 401));
+    return next(new AppError('Authentication required', 401));
   }
 };

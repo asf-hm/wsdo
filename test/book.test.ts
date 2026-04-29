@@ -17,7 +17,8 @@ describe('Books API', () => {
     role: 'user'
   };
 
-  const token = jwt.sign(user, env.JWT_SECRET);
+  const signToken = (u: AuthUser) => jwt.sign(u, env.JWT_SECRET, { algorithm: 'HS256' });
+  const token = signToken(user);
 
   afterEach(() => {
     sinon.restore();
@@ -46,6 +47,8 @@ describe('Books API', () => {
   });
 
   it('rejects invalid book input', async () => {
+    const createStub = sinon.stub(BookModel, 'create');
+
     const response = await request(app).post('/books').set('Authorization', `Bearer ${token}`).send({
       title: '',
       author: 'Jane Carter',
@@ -56,6 +59,7 @@ describe('Books API', () => {
     });
 
     assert.equal(response.status, 400);
+    sinon.assert.notCalled(createStub);
   });
 
   it('rejects creating a book in a library outside user membership', async () => {
@@ -131,5 +135,112 @@ describe('Books API', () => {
       filter.library.$in.map((id: Types.ObjectId) => id.toString()),
       user.libraries
     );
+  });
+
+  it('returns a book by id', async () => {
+    const book = {
+      _id: '507f1f77bcf86cd799439013',
+      title: 'Clean API Design',
+      author: 'Jane Carter',
+      authorCountry: 'US',
+      publishedDate: '2020-01-01T00:00:00.000Z',
+      pages: 320,
+      library: user.libraries[0]
+    };
+
+    sinon.stub(BookModel, 'findOne').resolves(book as never);
+
+    const response = await request(app)
+      .get('/books/507f1f77bcf86cd799439013')
+      .set('Authorization', `Bearer ${token}`);
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.title, book.title);
+  });
+
+  it('returns 400 for an invalid book id', async () => {
+    const findOneStub = sinon.stub(BookModel, 'findOne');
+
+    const response = await request(app)
+      .get('/books/not-an-objectid')
+      .set('Authorization', `Bearer ${token}`);
+
+    assert.equal(response.status, 400);
+    sinon.assert.notCalled(findOneStub);
+  });
+
+  it('updates a book and returns the updated document', async () => {
+    const updated = {
+      _id: '507f1f77bcf86cd799439013',
+      title: 'Updated Title',
+      author: 'Jane Carter',
+      authorCountry: 'US',
+      publishedDate: '2020-01-01T00:00:00.000Z',
+      pages: 400,
+      library: user.libraries[0]
+    };
+
+    sinon.stub(BookModel, 'findOneAndUpdate').resolves(updated as never);
+
+    const response = await request(app)
+      .put('/books/507f1f77bcf86cd799439013')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Updated Title', pages: 400 });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.title, 'Updated Title');
+    assert.equal(response.body.pages, 400);
+  });
+
+  it('returns 404 when updating a book not in user libraries', async () => {
+    sinon.stub(BookModel, 'findOneAndUpdate').resolves(null);
+
+    const response = await request(app)
+      .put('/books/507f1f77bcf86cd799439013')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Updated Title' });
+
+    assert.equal(response.status, 404);
+  });
+
+  it('returns 400 when update body is empty', async () => {
+    const updateStub = sinon.stub(BookModel, 'findOneAndUpdate');
+
+    const response = await request(app)
+      .put('/books/507f1f77bcf86cd799439013')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+
+    assert.equal(response.status, 400);
+    sinon.assert.notCalled(updateStub);
+  });
+
+  it('returns 403 when updating a book to a library outside user membership', async () => {
+    const response = await request(app)
+      .put('/books/507f1f77bcf86cd799439013')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ library: '507f1f77bcf86cd799439099' });
+
+    assert.equal(response.status, 403);
+  });
+
+  it('deletes a book and returns 204', async () => {
+    sinon.stub(BookModel, 'findOneAndDelete').resolves({ _id: '507f1f77bcf86cd799439013' } as never);
+
+    const response = await request(app)
+      .delete('/books/507f1f77bcf86cd799439013')
+      .set('Authorization', `Bearer ${token}`);
+
+    assert.equal(response.status, 204);
+  });
+
+  it('returns 404 when deleting a book not in user libraries', async () => {
+    sinon.stub(BookModel, 'findOneAndDelete').resolves(null);
+
+    const response = await request(app)
+      .delete('/books/507f1f77bcf86cd799439013')
+      .set('Authorization', `Bearer ${token}`);
+
+    assert.equal(response.status, 404);
   });
 });

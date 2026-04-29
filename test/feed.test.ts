@@ -18,10 +18,33 @@ describe('Feed ranking', () => {
     role: 'user'
   };
 
-  const token = jwt.sign(user, env.JWT_SECRET);
+  const signToken = (u: AuthUser) => jwt.sign(u, env.JWT_SECRET, { algorithm: 'HS256' });
+  const token = signToken(user);
 
   afterEach(() => {
     sinon.restore();
+  });
+
+  it('applies 80% weight to pages and 20% to age', () => {
+    const eps = 1e-9;
+
+    const pagesOnly = scoreBook(env.FEED_MAX_PAGES, 0, {
+      maxPages: env.FEED_MAX_PAGES,
+      maxAgeDays: env.FEED_MAX_AGE_DAYS
+    });
+    assert.ok(Math.abs(pagesOnly - 0.8) < eps, `expected 0.8, got ${pagesOnly}`);
+
+    const ageOnly = scoreBook(0, env.FEED_MAX_AGE_DAYS, {
+      maxPages: env.FEED_MAX_PAGES,
+      maxAgeDays: env.FEED_MAX_AGE_DAYS
+    });
+    assert.ok(Math.abs(ageOnly - 0.2) < eps, `expected 0.2, got ${ageOnly}`);
+
+    const full = scoreBook(env.FEED_MAX_PAGES, env.FEED_MAX_AGE_DAYS, {
+      maxPages: env.FEED_MAX_PAGES,
+      maxAgeDays: env.FEED_MAX_AGE_DAYS
+    });
+    assert.ok(Math.abs(full - 1.0) < eps, `expected 1.0, got ${full}`);
   });
 
   it('gives a higher score to longer books when age is equal', () => {
@@ -48,6 +71,16 @@ describe('Feed ranking', () => {
     });
 
     assert.equal(olderBook > newerBook, true);
+  });
+
+  it('marks books from the user country with sameCountry = 1', () => {
+    const pipeline = buildFeedPipeline(user);
+    const addFields = pipeline[1] as any;
+    const cond = addFields.$addFields.sameCountry.$cond;
+
+    assert.deepEqual(cond[0].$eq, ['$authorCountry', user.country]);
+    assert.equal(cond[1], 1);
+    assert.equal(cond[2], 0);
   });
 
   it('builds the expected feed aggregation shape', () => {

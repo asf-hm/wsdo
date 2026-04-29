@@ -2,12 +2,18 @@ import { z } from 'zod';
 import { env } from '../config/env';
 import { objectId } from './common';
 
+const publishedDate = z.coerce
+  .date()
+  .refine((date) => date <= new Date(), { message: 'publishedDate cannot be in the future' });
+
+const country = z.string().trim().min(1).transform((value) => value.toUpperCase());
+
 const bookBody = z.object({
   title: z.string().trim().min(1),
   author: z.string().trim().min(1),
-  authorCountry: z.string().trim().min(1),
-  publishedDate: z.coerce.date().max(new Date(), { message: 'publishedDate cannot be in the future' }),
-  pages: z.coerce.number().int().positive(),
+  authorCountry: country,
+  publishedDate,
+  pages: z.coerce.number().int().positive().max(50_000),
   library: objectId
 });
 

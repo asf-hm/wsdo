@@ -17,15 +17,17 @@ describe('Auth API', () => {
 
   it('returns a JWT for valid credentials', async () => {
     const passwordHash = await bcrypt.hash('password123', 4);
-    const selectStub = sinon.stub().resolves({
+    const user = {
       _id: { toString: () => userId },
       username: 'alice',
       password: passwordHash,
       country: 'US',
       libraries: [{ toString: () => libraryId }],
       role: 'user'
-    });
+    };
 
+    const leanStub = sinon.stub().resolves(user);
+    const selectStub = sinon.stub().returns({ lean: leanStub });
     sinon.stub(UserModel, 'findOne').returns({ select: selectStub } as never);
 
     const response = await request(app).post('/login').send({
@@ -43,9 +45,22 @@ describe('Auth API', () => {
     assert.deepEqual(decoded.libraries, [libraryId]);
   });
 
+  it('returns 401 when the username does not exist', async () => {
+    const leanStub = sinon.stub().resolves(null);
+    const selectStub = sinon.stub().returns({ lean: leanStub });
+    sinon.stub(UserModel, 'findOne').returns({ select: selectStub } as never);
+
+    const response = await request(app).post('/login').send({
+      username: 'nobody',
+      password: 'password123'
+    });
+
+    assert.equal(response.status, 401);
+  });
+
   it('returns 401 for a wrong password', async () => {
     const passwordHash = await bcrypt.hash('password123', 4);
-    const selectStub = sinon.stub().resolves({
+    const leanStub = sinon.stub().resolves({
       _id: { toString: () => userId },
       username: 'alice',
       password: passwordHash,
@@ -53,7 +68,7 @@ describe('Auth API', () => {
       libraries: [{ toString: () => libraryId }],
       role: 'user'
     });
-
+    const selectStub = sinon.stub().returns({ lean: leanStub });
     sinon.stub(UserModel, 'findOne').returns({ select: selectStub } as never);
 
     const response = await request(app).post('/login').send({

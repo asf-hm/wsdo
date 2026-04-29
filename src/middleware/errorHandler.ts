@@ -20,7 +20,12 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
     return;
   }
 
-  const message = env.NODE_ENV === 'production' ? 'Internal server error' : error.message;
+  const message =
+    env.NODE_ENV === 'production'
+      ? 'Internal server error'
+      : error instanceof Error
+        ? error.message
+        : String(error);
 
   res.status(500).json({ message });
 };

@@ -16,7 +16,8 @@ const userSchema = new Schema(
     country: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+      uppercase: true
     },
     libraries: [
       {
@@ -31,7 +32,7 @@ const userSchema = new Schema(
       default: 'user'
     }
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false }
 );
 
 export type User = InferSchemaType<typeof userSchema>;
